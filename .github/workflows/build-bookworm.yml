@@ -18,21 +18,33 @@ jobs:
           DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
             build-essential cmake pkg-config libboost-dev \
             libfcitx5core-dev libfcitx5config-dev libfcitx5utils-dev \
-            fcitx5-modules-dev libfcitx5-qt6-dev \
+            fcitx5-modules-dev \
             libimecore-dev libimepinyin-dev libjson-c-dev libcurl4-openssl-dev \
+            libxkbcommon-dev libxkbcommon-x11-dev \
             qt6-base-dev qt6-svg-dev qt6-webengine-dev
+      - name: Patch CMake (bookworm has no Fcitx5Qt6WidgetsAddons / config-ui)
+        run: |
+          sed -i '/^find_package(Fcitx5Qt6WidgetsAddons REQUIRED)/d' CMakeLists.txt
+          sed -i '/^add_library(wetypex-config-ui/,/WETYPE_SETTINGS=.*fcitx5-wetypex-settings")/d' CMakeLists.txt
+          sed -i '/^install(TARGETS wetypex-config-ui/d' CMakeLists.txt
+          grep -n 'config-ui\|WidgetsAddons' CMakeLists.txt || echo "config-ui fully removed"
       - name: Configure
         run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr
-      - name: Build
-        run: cmake --build build --parallel
+      - name: Build GUI tools only
+        run: |
+          cmake --build build --parallel --target \
+            fcitx5-wetypex-settings fcitx5-wetypex-ai-viewer \
+            fcitx5-wetypex-vmode fcitx5-wetypex-transfer \
+            fcitx5-wetypex-clipboard-set
       - name: Collect binaries
         run: |
           mkdir -p out
           cp build/fcitx5-wetypex-settings build/fcitx5-wetypex-ai-viewer \
              build/fcitx5-wetypex-vmode build/fcitx5-wetypex-transfer \
              build/fcitx5-wetypex-clipboard-set out/
-          cp build/libwetypexconfig.so out/ || true
           ls -la out
+      - name: Show Qt version linked
+        run: ldd out/fcitx5-wetypex-settings | grep -i 'qt6core\|Qt_6\.4\|Qt_6\.8' || true
       - uses: actions/upload-artifact@v4
         with:
           name: wetypex-qt-bookworm
