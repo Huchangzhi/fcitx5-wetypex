@@ -1,0 +1,39 @@
+name: build-bookworm
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container: debian:bookworm-slim
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: panxuc/fcitx5-wetypex
+          ref: v2.2.3.657-3
+      - name: Install build dependencies
+        run: |
+          apt-get update
+          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+            build-essential cmake pkg-config libboost-dev \
+            libfcitx5core-dev libfcitx5config-dev libfcitx5utils-dev \
+            fcitx5-modules-dev libfcitx5-qt6-dev \
+            libimecore-dev libimepinyin-dev libjson-c-dev libcurl4-openssl-dev \
+            qt6-base-dev qt6-svg-dev qt6-webengine-dev
+      - name: Configure
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr
+      - name: Build
+        run: cmake --build build --parallel
+      - name: Collect binaries
+        run: |
+          mkdir -p out
+          cp build/fcitx5-wetypex-settings build/fcitx5-wetypex-ai-viewer \
+             build/fcitx5-wetypex-vmode build/fcitx5-wetypex-transfer \
+             build/fcitx5-wetypex-clipboard-set out/
+          cp build/libwetypexconfig.so out/ || true
+          ls -la out
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wetypex-qt-bookworm
+          path: out/
